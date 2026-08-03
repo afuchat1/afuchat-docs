@@ -1,0 +1,122 @@
+---
+title: "Cloud Builds with Expo Application Services (EAS)"
+sidebarTitle: "EAS Builds"
+description: "Cloud builds for AfuChat with EAS Build — project IDs, required env vars, bundle identifiers, associated domain config, and OTA update guidance."
+---
+
+Expo Application Services (EAS) provides managed cloud build infrastructure for React Native apps. AfuChat uses EAS Build to produce signed APKs, AABs, and iOS IPAs without requiring a local Android SDK or macOS machine. This page covers everything you need to trigger and manage builds.
+
+## Project Identifiers
+
+| Property | Value |
+|---|---|
+| EAS project ID | `7efbd70c-e8d4-485d-88a9-d05e3d34f280` |
+| EAS owner | `afuapp` |
+| Android package | `com.afuchat.afuapp` |
+| Android versionCode | `249` |
+| App version | `2.2.8` |
+| iOS bundle ID | `com.afuchat.afuapp` |
+
+These identifiers are already committed to `artifacts/mobile/app.json` and `eas.json`. You do not need to reconfigure them unless you are forking the project to a new EAS account.
+
+## Prerequisites
+
+Install the EAS CLI and authenticate before running any build commands:
+
+```bash
+pnpm install -g eas-cli
+eas login
+```
+
+You must be a member of the `afuapp` EAS organisation (or have forked to your own account) to submit builds.
+
+## Required Environment Variables
+
+Two environment variables must be set before running EAS commands from Replit or any environment that does not have a local git repository:
+
+| Variable | Purpose |
+|---|---|
+| `EAS_NO_VCS=1` | Disables EAS's git stash requirement. **Required in Replit** — git stash is blocked in that environment. |
+| `EXPO_TOKEN` | Your Expo personal access token for authenticating EAS CLI non-interactively. Generate one at [expo.dev/accounts/settings](https://expo.dev/accounts/settings). |
+
+```bash
+export EXPO_TOKEN=your_expo_token_here
+export EAS_NO_VCS=1
+```
+
+<Warning>
+  Without `EAS_NO_VCS=1`, EAS Build will attempt to stash uncommitted local
+  changes before uploading the project. This fails in Replit because git stash
+  is blocked. Always set this flag when triggering builds from cloud IDEs.
+</Warning>
+
+## Triggering a Build
+
+Navigate to the mobile project directory and run the EAS build command for your target platform:
+
+<CodeGroup>
+```bash Android APK (development)
+cd artifacts/mobile
+EAS_NO_VCS=1 eas build --platform android --profile development
+```
+
+```bash Android AAB (production)
+cd artifacts/mobile
+EAS_NO_VCS=1 eas build --platform android --profile production
+```
+
+```bash iOS (production)
+cd artifacts/mobile
+EAS_NO_VCS=1 eas build --platform ios --profile production
+```
+</CodeGroup>
+
+EAS uploads your project source, runs the build on Expo's infrastructure, and provides a download link when the build completes. Build logs are streamed to your terminal in real time.
+
+## Build Profiles
+
+Build profiles are defined in `artifacts/mobile/eas.json`. The standard profiles are:
+
+| Profile | Platform | Output | Use Case |
+|---|---|---|---|
+| `development` | Android | APK | Install on a test device with Expo Dev Client |
+| `preview` | Android | APK | Internal distribution and QA |
+| `production` | Android + iOS | AAB / IPA | Play Store and App Store submission |
+
+<Tip>
+  Use the `development` profile during active feature development — it includes
+  the Expo Dev Client runtime, which lets you load different JS bundles without
+  rebuilding the native layer.
+</Tip>
+
+## Associated Domains
+
+AfuChat handles universal links through Apple's Associated Domains entitlement (iOS) and Android App Links. The following domains are registered:
+
+```
+applinks:afuchat.com
+applinks:www.afuchat.com
+```
+
+These are configured in `artifacts/mobile/app.json` under `expo.ios.associatedDomains` and in the Android `AndroidManifest.xml` intent filters. Deep links using the `afuchat://` scheme work on both platforms without additional configuration.
+
+## OTA Updates with EAS Update
+
+For JavaScript-only changes (no native module additions or modifications), you can push an over-the-air update without triggering a full build:
+
+```bash
+cd artifacts/mobile
+EAS_NO_VCS=1 eas update --branch production --message "Fix chat bubble layout"
+```
+
+OTA updates are delivered to users on the next app launch. Native changes — new Expo modules, Gradle dependencies, or `app.json` changes — always require a full EAS build.
+
+## Checking Build Status
+
+View build history and download artefacts from the EAS dashboard or via the CLI:
+
+```bash
+eas build:list --platform android
+```
+
+Each build entry shows the build ID, profile, status, and a direct download link for the APK or AAB.

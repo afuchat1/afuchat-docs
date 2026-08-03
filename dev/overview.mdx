@@ -1,0 +1,86 @@
+---
+title: "AfuChat Developer Overview (Android Super-App)"
+sidebarTitle: "Overview"
+description: "An introduction to the AfuChat open-source Android super-app — its MIT license, technology stack, repository layout, and how to start contributing."
+---
+
+AfuChat is a mobile-first Android super-app built with React Native and Expo. The project is **MIT licensed** and open for community contributions. Whether you want to add a new mini-app module, improve the chat experience, or extend the Supabase backend, this documentation walks you through everything you need.
+
+## Technology Stack
+
+AfuChat is built on a modern, fully typed JavaScript/TypeScript stack with native Android performance at its core.
+
+| Layer | Technology |
+|---|---|
+| Framework | React Native 0.83 + Expo SDK 55 |
+| Navigation | Expo Router (file-based) |
+| JS Engine | Hermes + New Architecture |
+| Backend | Supabase (Auth, PostgreSQL, Realtime, Storage, Edge Functions) |
+| Local Storage | SQLite (`expo-sqlite`), MMKV, AsyncStorage |
+| Package Manager | pnpm workspace |
+| Language | TypeScript (strict) |
+
+The app targets Android exclusively. The package identifier is `com.afuchat.afuapp`, currently at version **2.2.8** (versionCode 249).
+
+## Repository Structure
+
+The monorepo uses a pnpm workspace. All mobile application code lives under `artifacts/mobile`.
+
+```
+artifacts/mobile/
+├── app/                  # Expo Router screens and layouts
+│   ├── (tabs)/           # Bottom-tab navigator screens
+│   ├── (auth)/           # Authentication screens
+│   └── ...
+├── components/           # Shared UI components
+├── context/              # React Context providers (Auth, Theme, Chat, etc.)
+├── hooks/                # Custom React hooks
+├── lib/                  # Core utilities and service clients
+│   ├── supabase/         # Supabase client + helpers
+│   └── superapp/         # Mini-app runtime and registry
+├── modules/              # Individual super-app mini-app modules
+└── supabase/             # Edge Function source and Supabase config
+```
+
+<Note>
+  All commands in this documentation assume you are working from the repository
+  root unless otherwise specified. The `cd artifacts/mobile` step is called out
+  explicitly wherever it is needed.
+</Note>
+
+## Key Identifiers
+
+| Property | Value |
+|---|---|
+| Android package | `com.afuchat.afuapp` |
+| App version | `2.2.8` |
+| Android versionCode | `249` |
+| EAS project ID | `7efbd70c-e8d4-485d-88a9-d05e3d34f280` |
+| Deep link scheme | `afuchat://` |
+| Universal links | `https://afuchat.com/<path>` |
+
+## Open for Contributions
+
+AfuChat welcomes contributions across the entire stack:
+
+- **New mini-apps** — implement a `ModuleManifest` and register it in `SUPER_APP_REGISTRY` (see [Mini-App SDK](/dev/superapp-mini-apps))
+- **UI components** — shared components live in `components/` and follow the existing design tokens
+- **Edge Functions** — serverless Deno functions in `supabase/functions/` (see [Edge Functions](/dev/edge-functions))
+- **Bug fixes and performance** — open a pull request against the `main` branch
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="bolt" href="/dev/quickstart">
+    Get the app running on your Android device in five steps.
+  </Card>
+  <Card title="Architecture" icon="sitemap" href="/dev/architecture">
+    Understand the high-level architecture before diving into code.
+  </Card>
+  <Card title="Environment" icon="sliders" href="/dev/environment">
+    Configure environment variables for local development.
+  </Card>
+  <Card title="Mini-App SDK" icon="grid" href="/dev/superapp-mini-apps">
+    Build a new mini-app inside the AfuChat super-app shell.
+  </Card>
+</CardGroup>

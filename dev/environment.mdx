@@ -1,0 +1,87 @@
+---
+title: "Environment Variables for AfuChat Development"
+sidebarTitle: "Environment"
+description: "Configure EXPO_PUBLIC_* vars for AfuChat local development. Every variable is optional — production fallbacks are built in for zero-config onboarding."
+---
+
+AfuChat is designed for **zero-configuration onboarding**. Every environment variable has a production fallback baked into `lib/env.ts`, so cloning the repo and running `pnpm exec expo start` works immediately without creating any `.env` file. You only need to override variables when pointing at a custom Supabase project or a different domain.
+
+## Environment Variable Reference
+
+All runtime configuration uses the `EXPO_PUBLIC_` prefix, which Expo inlines into the JavaScript bundle at build time. Variables without this prefix are not accessible in the React Native runtime.
+
+| Variable | Default | Description |
+|---|---|---|
+| `EXPO_PUBLIC_SUPABASE_URL` | `https://rhnsjqqtdzlkvqazfcbg.supabase.co` | Base URL of the Supabase project |
+| `EXPO_PUBLIC_SUPABASE_ANON_KEY` | *(production key)* | Supabase anonymous (public) key |
+| `EXPO_PUBLIC_ENGAGERA_API_KEY` | *(production key)* | AI service key for Engagera features |
+| `EXPO_PUBLIC_GIPHY_API_KEY` | *(production key)* | Giphy API key for GIF search |
+| `EXPO_PUBLIC_DOMAIN` | `afuchat.com` | App domain used for universal links and sharing |
+
+<Note>
+  Because all variables have production fallbacks, you will connect to the live
+  AfuChat Supabase project by default. This is intentional for contributors who
+  just want to explore the app. If you are doing backend development, point
+  `EXPO_PUBLIC_SUPABASE_URL` at your own Supabase project.
+</Note>
+
+## Setting Variables for Local Development
+
+You can pass variables inline on the command line or place them in a `.env.local` file inside `artifacts/mobile/`. Expo automatically loads `.env.local` at startup.
+
+<CodeGroup>
+```bash Inline (terminal)
+EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co \
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key \
+pnpm exec expo start --port 8000
+```
+
+```bash artifacts/mobile/.env.local
+EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+EXPO_PUBLIC_DOMAIN=your-dev-domain.com
+```
+</CodeGroup>
+
+<Tip>
+  The `.env.local` approach is more convenient during active backend development.
+  Both methods are equivalent — Expo merges inline variables with the file,
+  with inline taking precedence.
+</Tip>
+
+## Replit / Cloud IDE Variables
+
+When running AfuChat in Replit, you need additional environment variables to proxy the Metro bundler through the Replit dev domain. These are not application variables — they configure the Expo development server itself.
+
+```bash
+EXPO_OFFLINE=1 EXPO_NO_LAZY=1 \
+  EXPO_PUBLIC_DOMAIN=$REPLIT_DEV_DOMAIN \
+  EXPO_PUBLIC_REPL_ID=$REPL_ID \
+  EXPO_PACKAGER_PROXY_URL=https://$REPLIT_EXPO_DEV_DOMAIN \
+  REACT_NATIVE_PACKAGER_HOSTNAME=$REPLIT_EXPO_DEV_DOMAIN \
+  pnpm exec expo start --port 8000
+```
+
+`REPLIT_DEV_DOMAIN`, `REPL_ID`, and `REPLIT_EXPO_DEV_DOMAIN` are injected automatically by Replit — you do not need to set them manually.
+
+<Warning>
+  Use `EXPO_OFFLINE=1` instead of `CI=1` in cloud environments. Setting `CI=1`
+  disables the interactive bundler and **breaks** the Metro development server
+  for React Native.
+</Warning>
+
+## Security Model
+
+AfuChat intentionally ships `EXPO_PUBLIC_SUPABASE_ANON_KEY` and `EXPO_PUBLIC_ENGAGERA_API_KEY` as public values. This is by design:
+
+**Supabase anon key** — The anon key only grants access to rows that Row Level Security (RLS) policies permit. Every table in AfuChat has RLS enabled. A user possessing the anon key cannot read another user's messages, profile data, or transactions.
+
+**Engagera API key** — The key is rate-limited on the server side. The risk of abuse is bounded by quota enforcement, not by key secrecy.
+
+<Warning>
+  Never add secret keys, service-role keys, or private API credentials to
+  variables prefixed with `EXPO_PUBLIC_`. Those values are bundled into the APK
+  and are readable by anyone who decompiles the binary.
+</Warning>
+
+If you need to call a privileged API from AfuChat, implement it as a [Supabase Edge Function](/dev/edge-functions) that reads secrets from Supabase's secure environment, and call the Edge Function from the client.

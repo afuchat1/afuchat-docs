@@ -1,22 +1,11 @@
 {
-  "$schema": "https://mintlify.com/docs.json",
-  "name": "Afuchat",
+  "projectType": "saas",
+  "projectName": "AfuChat",
+  "projectDescription": "AfuChat is a mobile-first social super-app for Android that combines real-time messaging, short-form video, AI assistance, digital payments, and a suite of mini-apps — all in one place.",
   "theme": "almond",
-  "colors": {
-    "primary": "#085ed8",
-    "light": "#04c1ce"
-  },
-  "logo": {
-    "light": "https://media.brand.dev/7466875f-e3b3-4da1-a1a2-6e05447493b6.svg",
-    "dark": "https://media.brand.dev/7466875f-e3b3-4da1-a1a2-6e05447493b6.svg"
-  },
-  "favicon": "/favicon.svg",
-  "navbar": {
-    "primary": {
-      "type": "github",
-      "href": "https://github.com/afuchat1/AfuChat-Supa"
-    }
-  },
+  "primaryColor": "#085ed8",
+  "lightColor": "#04c1ce",
+  "darkColor": null,
   "navigation": {
     "tabs": [
       {
@@ -143,5 +132,45 @@
         ]
       }
     ]
-  }
+  },
+  "keyFeatures": [
+    "Real-time messaging with offline-first SQLite cache",
+    "P2P voice calls via WebRTC over Supabase Realtime",
+    "Short-form video feed (AfuShorts) with algorithmic discovery",
+    "Stories with camera creation tools",
+    "AfuAI — built-in AI assistant accessible in chat",
+    "AfuPay — in-app digital wallet with ACoins and Nexa rewards",
+    "AfuMarket — shop from verified sellers",
+    "AfuGames — play and compete with friends",
+    "AfuFreelance — hire talent or offer services",
+    "Digital ID — verifiable identity card",
+    "Username Marketplace — buy and sell premium @handles",
+    "Prestige system — XP-based tiers (Bronze → Platinum)",
+    "Premium subscription tiers (Free, Silver, Gold, Platinum)",
+    "Creator monetization — paid chats, paywalled content, paid communities",
+    "Communities & Channels with broadcast features",
+    "QR Scanner & deep-link support",
+    "Multi-account switching",
+    "Biometric app lock and two-factor authentication",
+    "Business profiles with analytics tools",
+    "Referral program with Nexa rewards"
+  ],
+  "publicApiSurface": [
+    "Supabase Auth (email/password, Google OAuth, phone)",
+    "supabase.rpc('get_or_create_direct_chat', { other_user_id })",
+    "supabase.rpc('send_afu_ai_welcome', { p_chat_id, p_sender_id, p_content })",
+    "supabase.rpc('deduct_acoin', { amount })",
+    "Edge Function: register-push-token",
+    "Edge Function: send-push-notification",
+    "Edge Function: push-notification-trigger",
+    "Edge Function: ai-lens",
+    "Edge Function: export-user-data",
+    "Edge Function: support-ai-reply",
+    "Edge Function: uploads",
+    "SuperApp openApp(id) — open a mini-app by registry ID",
+    "SuperApp navigateOutside(route, params) — navigate from mini-app to main app",
+    "transferAcoin({ buyerId, sellerId, amount, transactionType, metadata })",
+    "Deep link scheme: afuchat://<route>",
+    "Universal links: https://afuchat.com/<path>"
+  ]
 }

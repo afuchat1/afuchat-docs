@@ -1,0 +1,139 @@
+---
+title: "AfuChat App Architecture for Developers"
+sidebarTitle: "Architecture"
+description: "AfuChat's architecture for developers: Expo Router screens, React Context state, SQLite and MMKV local storage, Supabase backend, and the SuperApp runtime."
+---
+
+AfuChat is a **native Android-only** application. There is no web server, no Express layer, and no server-side rendering — the entire product is a React Native client that communicates directly with Supabase services. This page gives you the mental model you need to navigate the codebase confidently.
+
+## Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────┐
+│                  Android Device                      │
+│                                                      │
+│  ┌─────────────┐   ┌──────────────────────────────┐  │
+│  │ Expo Router │   │    React Context Providers   │  │
+│  │  (screens)  │◄──│  Auth · Theme · Call · Chat  │  │
+│  └──────┬──────┘   └──────────────────────────────┘  │
+│         │                                            │
+│  ┌──────▼──────────────────────────────────────────┐  │
+│  │              SuperApp Runtime                   │  │
+│  │   MiniAppRuntime · Registry · useSuperApp()     │  │
+│  └──────┬──────────────────────────────────────────┘  │
+│         │                                            │
+│  ┌──────▼──────────────────────────────────────────┐  │
+│  │            Local Persistence Layer              │  │
+│  │    SQLite (messages)  ·  MMKV (settings/cache)  │  │
+│  └─────────────────────────────────────────────────┘  │
+└──────────────────────┬──────────────────────────────┘
+                       │ HTTPS / WebSocket
+┌──────────────────────▼──────────────────────────────┐
+│                   Supabase Cloud                     │
+│                                                      │
+│  Auth  ·  PostgreSQL (RLS)  ·  Realtime              │
+│  Storage  ·  Edge Functions (Deno)                   │
+└──────────────────────────────────────────────────────┘
+```
+
+## Client Layer — Expo Router Screens
+
+Navigation is handled by **Expo Router**, which maps the `app/` directory structure directly to routes. The main areas are:
+
+- `app/(tabs)/` — the primary bottom-tab navigator (Home, Chat, SuperApp, Profile, etc.)
+- `app/(auth)/` — sign-in, sign-up, and OAuth callback screens
+- `app/(chat)/` — individual conversation screens with Realtime subscriptions
+- Modal and deep-link routes are co-located as needed
+
+Expo Router runs on top of React Navigation and supports both **deep links** (`afuchat://<route>`) and **universal links** (`https://afuchat.com/<path>`).
+
+## State Management — React Context Providers
+
+AfuChat uses React Context exclusively for global state. There is no Redux or Zustand dependency. Each provider lives in `context/` and wraps a specific domain:
+
+| Provider | Responsibility |
+|---|---|
+| `AuthContext` | Current user session, sign-in/sign-out helpers, token refresh |
+| `ThemeContext` | Light/dark mode, colour tokens, dynamic theming |
+| `CallContext` | WebRTC call state — active call, signalling via Supabase Realtime |
+| `LanguageContext` | i18n locale selection and string resolution |
+| `ChatPrefsContext` | Per-conversation preferences (notifications, media auto-download) |
+
+Providers are stacked at the root layout (`app/_layout.tsx`). Lower providers can safely consume higher ones through hooks.
+
+## Local Persistence
+
+AfuChat uses **two** local storage engines depending on data type:
+
+### SQLite (`expo-sqlite`)
+
+SQLite stores structured, relational data that must survive app restarts and work offline:
+
+- Message history for conversations
+- Conversation metadata and unread counts
+- Cached user profiles
+
+The database is initialised on first launch and migrated incrementally. All SQLite operations are wrapped in typed helper functions inside `lib/`.
+
+### MMKV
+
+MMKV provides synchronous key-value storage for settings and ephemeral cache:
+
+- User preferences (theme, notification toggles)
+- Auth token cache between cold starts
+- Feature flag overrides
+
+<Tip>
+  MMKV reads are synchronous and happen on the JS thread with near-zero overhead.
+  Prefer MMKV over AsyncStorage for any value you need to read during render.
+</Tip>
+
+### AsyncStorage
+
+AsyncStorage is used in a small number of legacy paths where third-party libraries (such as Supabase Auth) require it. New code should prefer MMKV.
+
+## Backend Layer — Supabase
+
+All network I/O goes to Supabase. There is no intermediate API gateway.
+
+| Service | Usage in AfuChat |
+|---|---|
+| **Auth** | Email/password sign-in, Google OAuth, session management |
+| **PostgreSQL** | All persisted data — users, messages, posts, transactions |
+| **Row Level Security** | Every table is protected; clients can only read/write their own data |
+| **Realtime** | Live message delivery, typing indicators, WebRTC signalling channels |
+| **Storage** | User avatars, chat media, post images |
+| **Edge Functions** | Push token registration, AI Lens, user data export, upload signing |
+
+See [Supabase Integration](/dev/supabase-integration) for client-side code examples and [Edge Functions](/dev/edge-functions) for the full function reference.
+
+## SuperApp Runtime
+
+The SuperApp layer is AfuChat's mini-app system. It lets independent feature modules be loaded, suspended, and resumed without leaving the host shell.
+
+```
+lib/superapp/
+├── MiniAppRuntime.tsx   # Context provider + useSuperApp() hook
+├── registry.ts          # SUPER_APP_REGISTRY — all registered modules
+└── types.ts             # ModuleManifest, SuperAppContextValue
+```
+
+Each mini-app declares a `ModuleManifest` (id, name, icon, gradient, keepAlive flag, etc.) and is registered in the central registry. The `MiniAppRuntime` manages the lifecycle:
+
+- `openApp(id)` — bring a mini-app to the foreground
+- `minimizeApp(id)` — push to background (kept alive if `keepAlive: true`)
+- `closeApp(id)` — fully unmount
+
+See [Mini-App SDK](/dev/superapp-mini-apps) for the full API and a step-by-step guide to adding a new module.
+
+## Data Flow Summary
+
+The typical data flow for a chat message looks like this:
+
+1. User types and sends — optimistic update written to **SQLite** immediately
+2. Message POSTed to **Supabase PostgreSQL** via the Supabase JS client
+3. RLS policy verifies the sender is a participant in the conversation
+4. **Supabase Realtime** broadcasts the `INSERT` event to all subscribed clients
+5. Recipient receives the Realtime event and appends the message to their local SQLite cache
+
+This pattern — optimistic local write → remote persist → Realtime broadcast → remote sync — applies throughout the app wherever live data is needed.

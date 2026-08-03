@@ -1,0 +1,272 @@
+---
+title: "Building Mini-Apps with the AfuChat SuperApp SDK"
+sidebarTitle: "Mini-App SDK"
+description: "Build mini-apps for the AfuChat super-app shell — ModuleManifest type, SUPER_APP_REGISTRY, the useSuperApp() hook, and keepAlive lifecycle behaviour."
+---
+
+AfuChat's SuperApp layer provides a host shell that can load, suspend, and resume independent feature modules — called **mini-apps** — without navigating away from the main app. Each mini-app declares a manifest, registers itself in the central registry, and can interact with the host shell through the `useSuperApp()` hook.
+
+## Concepts
+
+**Module** — A self-contained React Native screen or stack that represents a single feature (e.g. Games, Marketplace, AI Assistant).
+
+**Manifest** — A metadata object describing a module: its identity, icon, colours, and lifecycle behaviour.
+
+**Registry** — The central list of all available modules in the app, defined in `lib/superapp/registry.ts`.
+
+**Runtime** — The `MiniAppRuntime` React context provider that manages the open/minimised/closed lifecycle of all registered modules.
+
+## ModuleManifest Type
+
+Every mini-app starts with a `ModuleManifest`. Define it in your module directory and export it for registration.
+
+```typescript lib/superapp/types.ts
+type ModuleManifest = {
+  /** Unique string identifier for this module, e.g. 'games' */
+  id: string;
+
+  /** Human-readable display name shown in the SuperApp launcher */
+  name: string;
+
+  /** Short description shown in the module detail view */
+  description: string;
+
+  /** Semantic version string, e.g. '1.0.0' */
+  version: string;
+
+  /** Ionicons icon name, e.g. 'game-controller-outline' */
+  icon: string;
+
+  /** Two-stop gradient used as the module card background */
+  gradient: readonly [string, string];
+
+  /**
+   * When true, the module stays mounted in the background when minimised.
+   * Use for modules that stream audio, track location, or maintain WebSocket
+   * connections. When false, the component unmounts on minimise.
+   */
+  keepAlive: boolean;
+
+  /** Optional badge text shown on the launcher icon, e.g. 'NEW' or '3' */
+  badge?: string;
+
+  /** When true, the module is visible in the launcher but not yet launchable */
+  comingSoon?: boolean;
+
+  /** When true, the module is only available on native (not Expo Go web) */
+  nativeOnly?: boolean;
+};
+```
+
+## Registering a Mini-App
+
+Open `lib/superapp/registry.ts` and add your manifest to the `SUPER_APP_REGISTRY` array. The order of entries determines the display order in the launcher grid.
+
+```typescript lib/superapp/registry.ts
+import { ModuleManifest } from './types';
+
+export const SUPER_APP_REGISTRY: ModuleManifest[] = [
+  {
+    id: 'ai-assistant',
+    name: 'AfuChat AI',
+    description: 'Your personal AI assistant, powered by AfuChat.',
+    version: '1.2.0',
+    icon: 'sparkles-outline',
+    gradient: ['#6C63FF', '#3B82F6'],
+    keepAlive: false,
+  },
+  {
+    id: 'marketplace',
+    name: 'Marketplace',
+    description: 'Buy and sell with your community.',
+    version: '1.0.0',
+    icon: 'storefront-outline',
+    gradient: ['#F59E0B', '#EF4444'],
+    keepAlive: false,
+    badge: 'NEW',
+  },
+  // ─── Add your module here ───────────────────────────────────────────────────
+  {
+    id: 'my-module',
+    name: 'My Module',
+    description: 'A brief description of what this module does.',
+    version: '0.1.0',
+    icon: 'extension-puzzle-outline',
+    gradient: ['#10B981', '#059669'],
+    keepAlive: false,
+  },
+];
+```
+
+<Note>
+  Use Ionicons icon names. Browse the full icon set at
+  [ionic.io/ionicons](https://ionic.io/ionicons). Always use the `outline`
+  variant for consistency with the rest of the launcher UI.
+</Note>
+
+## Implementing the Module Screen
+
+Create your module's main screen in `modules/my-module/index.tsx`. The screen has access to the full React Native API and all shared app components.
+
+```typescript modules/my-module/index.tsx
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useSuperApp } from '@/lib/superapp/MiniAppRuntime';
+
+export default function MyModuleScreen() {
+  const { minimizeApp, closeApp, navigateOutside } = useSuperApp();
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>My Module</Text>
+
+      <TouchableOpacity onPress={() => minimizeApp('my-module')}>
+        <Text>Minimize</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => closeApp('my-module')}>
+        <Text>Close</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={() => navigateOutside('/(tabs)/chat', { highlight: 'true' })}
+      >
+        <Text>Open Chat Tab</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 24 },
+});
+```
+
+## useSuperApp() Hook
+
+The `useSuperApp()` hook gives any component inside `MiniAppRuntime` access to the super-app lifecycle API.
+
+```typescript
+import { useSuperApp } from '@/lib/superapp/MiniAppRuntime';
+```
+
+The hook returns a `SuperAppContextValue` object:
+
+```typescript lib/superapp/types.ts
+type SuperAppContextValue = {
+  /** All currently open (foreground + background) mini-app instances */
+  openApps: OpenApp[];
+
+  /** The ID of the mini-app currently in the foreground, or null */
+  activeAppId: string | null;
+
+  /** Bring a mini-app to the foreground, launching it if not already open */
+  openApp: (id: string) => void;
+
+  /** Fully unmount a mini-app, clearing its state */
+  closeApp: (id: string) => void;
+
+  /**
+   * Push a mini-app to the background.
+   * If keepAlive is true, the component stays mounted.
+   * If keepAlive is false, the component unmounts until the app is re-opened.
+   */
+  minimizeApp: (id: string) => void;
+
+  /** Returns true if the given ID matches a registered module */
+  isSuperAppId: (id: string) => boolean;
+
+  /**
+   * Navigate to a route in the main Expo Router navigator while keeping
+   * the super-app shell open. Useful for deep-linking into chat or profile
+   * screens from within a mini-app.
+   */
+  navigateOutside: (route: string, params?: Record<string, string>) => void;
+};
+```
+
+### Opening a Mini-App Programmatically
+
+You can open any registered module from anywhere in the app — not just from the launcher grid:
+
+```typescript
+const { openApp } = useSuperApp();
+
+// Open the marketplace module from a product card deep link
+openApp('marketplace');
+```
+
+### Checking if an ID is a Mini-App
+
+Use `isSuperAppId` to guard navigation logic that handles both regular routes and super-app module IDs:
+
+```typescript
+const { isSuperAppId, openApp } = useSuperApp();
+
+function handleNavigation(destination: string) {
+  if (isSuperAppId(destination)) {
+    openApp(destination);
+  } else {
+    router.push(destination);
+  }
+}
+```
+
+## keepAlive Behaviour
+
+The `keepAlive` flag in a module's manifest controls what happens when the user minimises the module.
+
+| `keepAlive` | On minimise | On re-open |
+|---|---|---|
+| `false` | Component unmounts, state is lost | Component mounts fresh |
+| `true` | Component stays mounted, state is preserved | Component brought to foreground, no re-mount |
+
+Use `keepAlive: true` for modules that must maintain in-memory state across minimise/restore cycles — for example, a music player, a live game session, or a video call.
+
+<Warning>
+  Enabling `keepAlive: true` means the module's React tree stays mounted
+  indefinitely until the user explicitly closes it. Be mindful of memory
+  consumption — avoid keeping large data sets in component state for
+  keepAlive modules.
+</Warning>
+
+## MiniAppRuntime Provider
+
+`MiniAppRuntime` is the React context provider that powers `useSuperApp()`. It is mounted near the root of the app in `app/_layout.tsx` and wraps all SuperApp screens. You do not need to mount it yourself — it is already in place.
+
+If you are writing **unit tests** for a component that calls `useSuperApp()`, wrap the component under test in `MiniAppRuntime`:
+
+```typescript
+import { MiniAppRuntime } from '@/lib/superapp/MiniAppRuntime';
+
+render(
+  <MiniAppRuntime>
+    <MyModuleScreen />
+  </MiniAppRuntime>
+);
+```
+
+## Summary: Adding a New Mini-App
+
+<Steps>
+  ### Define the manifest
+
+  Create `modules/my-module/manifest.ts` and export a `ModuleManifest` object with a unique `id`, display name, Ionicons icon, gradient colours, and lifecycle settings.
+
+  ### Register the module
+
+  Add the manifest to `SUPER_APP_REGISTRY` in `lib/superapp/registry.ts`.
+
+  ### Build the screen
+
+  Create `modules/my-module/index.tsx` with the main module UI. Use `useSuperApp()` to access `minimizeApp`, `closeApp`, and `navigateOutside`.
+
+  ### Wire up navigation
+
+  If your module has internal navigation, use a nested `Stack` navigator inside the module screen. Expo Router is not used inside mini-app modules — use React Navigation directly.
+
+  ### Test on device
+
+  Run `pnpm exec expo start --port 8000`, open the SuperApp tab in the launcher, and tap your new module tile.
+</Steps>

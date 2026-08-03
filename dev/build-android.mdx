@@ -1,0 +1,131 @@
+---
+title: "Local Android Build Options for AfuChat"
+sidebarTitle: "Android Build"
+description: "Build AfuChat locally — export a JavaScript bundle, validate TypeScript, understand Android SDK targets, and configure ProGuard for release builds."
+---
+
+AfuChat supports two local build workflows: a **bundle export** via Expo (no native toolchain required) and a **full native build** using Gradle and the Android SDK. For cloud-based APK/AAB production builds, see [EAS Builds](/dev/eas-builds).
+
+## Android Build Properties
+
+The following Gradle and SDK settings are configured in `artifacts/mobile/android/` and are relevant if you are working on native modules or release packaging.
+
+| Property | Value |
+|---|---|
+| `minSdkVersion` | 24 (Android 7.0) |
+| `targetSdkVersion` | 36 |
+| `compileSdkVersion` | 36 |
+| Kotlin version | 2.1.21 |
+| ProGuard | Enabled in release builds |
+| JS Engine | Hermes + New Architecture |
+
+## Export a JavaScript Bundle
+
+Exporting the JavaScript bundle is the fastest way to verify that your changes compile and bundle without errors. No Android SDK installation is required — Expo handles everything.
+
+Make sure you are in the `artifacts/mobile` directory before running export commands:
+
+```bash
+cd artifacts/mobile
+pnpm exec expo export --platform android
+```
+
+Expo writes the output to `artifacts/mobile/dist/`. The export includes:
+
+- A Hermes bytecode bundle (`.hbc`) for optimised startup
+- All static assets (images, fonts, etc.)
+- A source map for symbolication
+
+<Note>
+  The bundle export does **not** produce an APK or AAB. It produces the JS
+  payload that is embedded in a native build. Use EAS or a local Gradle build
+  to produce an installable binary.
+</Note>
+
+## TypeScript Validation
+
+Before exporting or submitting a pull request, run a full TypeScript type check. This catches type errors without bundling any code:
+
+```bash
+cd artifacts/mobile
+pnpm run typecheck
+```
+
+AfuChat uses strict TypeScript settings. All `any` escapes must be justified with a comment. The type check must pass with **zero errors** before a PR can be merged.
+
+## Development Server Flags
+
+Several environment flags affect the Metro bundler behaviour during development:
+
+| Flag | Effect |
+|---|---|
+| `EXPO_OFFLINE=1` | Disables automatic update checks; required in network-restricted environments |
+| `EXPO_NO_LAZY=1` | Disables lazy bundling; ensures the full bundle is compiled up front |
+| `CI=1` | ⚠️ **Do not use** — disables the interactive server and breaks Metro in React Native projects |
+
+The correct combination for Replit or any cloud IDE is:
+
+```bash
+EXPO_OFFLINE=1 EXPO_NO_LAZY=1 pnpm exec expo start --port 8000
+```
+
+## ProGuard and Release Builds
+
+ProGuard is enabled for release builds and configured in `artifacts/mobile/android/app/proguard-rules.pro`. If you add a new native library that requires ProGuard keep rules, add them to this file.
+
+Common keep rules already present:
+- React Native core classes
+- Hermes engine symbols
+- Supabase SDK classes
+- Expo module interfaces
+
+<Warning>
+  If a release build crashes on launch but a debug build works, the most common
+  cause is an overly aggressive ProGuard rule stripping a required class.
+  Build with `./gradlew assembleRelease --info` and check the ProGuard mapping
+  file at `artifacts/mobile/android/app/build/outputs/mapping/`.
+</Warning>
+
+## Kotlin and Native Modules
+
+All custom native modules are written in **Kotlin 2.1.21**. If you are adding or modifying a native Expo module, place it in `artifacts/mobile/modules/` following the Expo Modules API pattern:
+
+```kotlin
+// artifacts/mobile/modules/my-module/android/src/main/java/com/afuchat/mymodule/MyModule.kt
+class MyModuleModule : Module() {
+  override fun definition() = ModuleDefinition {
+    Name("MyModule")
+    Function("myFunction") { arg: String -> arg.uppercase() }
+  }
+}
+```
+
+Run `pnpm exec expo prebuild --platform android` after adding a new native module to regenerate the Gradle project files before building.
+
+## Full Native Build with Gradle
+
+If you have the Android SDK and Gradle installed locally, you can build a debug APK directly:
+
+```bash
+cd artifacts/mobile/android
+./gradlew assembleDebug
+```
+
+The output APK is at:
+
+```
+artifacts/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+Install it on a connected device with:
+
+```bash
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+<Tip>
+  The first Gradle build downloads dependencies and can take 5–10 minutes.
+  Subsequent incremental builds are significantly faster. Use a Gradle daemon
+  (`org.gradle.daemon=true` in `gradle.properties`) to keep the JVM warm
+  between builds.
+</Tip>

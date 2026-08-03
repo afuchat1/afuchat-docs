@@ -1,0 +1,332 @@
+---
+title: "AfuChat Supabase Edge Functions Reference"
+sidebarTitle: "Edge Functions"
+description: "Request and response reference for all AfuChat Edge Functions: push token registration, AI Lens image recognition, user data export, and upload management."
+---
+
+AfuChat's serverless backend logic runs as Supabase Edge Functions — lightweight Deno functions deployed to the Supabase edge network. All functions share a common base URL.
+
+**Base URL:** `https://rhnsjqqtdzlkvqazfcbg.supabase.co/functions/v1`
+
+Functions that require authentication expect a Supabase JWT in the `Authorization` header, obtained from `supabase.auth.getSession()`.
+
+```typescript
+const { data: { session } } = await supabase.auth.getSession();
+const jwt = session?.access_token;
+
+const response = await fetch(
+  'https://rhnsjqqtdzlkvqazfcbg.supabase.co/functions/v1/register-push-token',
+  {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${jwt}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ token: expoPushToken }),
+  }
+);
+```
+
+---
+
+## register-push-token
+
+Registers an Expo push notification token for the authenticated user. Call this on every app launch after notification permissions are granted, as tokens can rotate.
+
+**`POST /functions/v1/register-push-token`**
+
+Requires authentication.
+
+### Request
+
+<ParamField body="token" type="string" required>
+  The Expo push notification token returned by `expo-notifications`. Typically in the format `ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]`.
+</ParamField>
+
+<ParamField body="platform" type="string">
+  The device platform. Optional — defaults to `android`. Accepted values: `android`, `ios`.
+</ParamField>
+
+### Response
+
+<ResponseField name="ok" type="boolean">
+  `true` when the token was successfully stored.
+</ResponseField>
+
+### Error Responses
+
+| HTTP Status | Body | Cause |
+|---|---|---|
+| `401` | `{ "error": "Unauthorized" }` | Missing or invalid `Authorization` header |
+| `400` | `{ "error": "token is required" }` | Request body missing `token` field |
+| `500` | `{ "error": "DB error" }` | Database write failure |
+
+```typescript Example
+const { data: { session } } = await supabase.auth.getSession();
+const { data: tokenData } = await Notifications.getExpoPushTokenAsync();
+
+await fetch(`${SUPABASE_EDGE_URL}/register-push-token`, {
+  method: 'POST',
+  headers: {
+    Authorization: `Bearer ${session?.access_token}`,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    token: tokenData.data,
+    platform: 'android',
+  }),
+});
+```
+
+---
+
+## ai-lens
+
+Analyses an image using a vision AI model and returns structured recognition results. This function is **publicly accessible** — no authentication is required.
+
+**`POST /functions/v1/ai-lens`**
+
+No authentication required.
+
+### Request
+
+<ParamField body="imageBase64" type="string" required>
+  The image to analyse, encoded as a base64 string. Do not include a `data:` URI prefix — send the raw base64 payload.
+</ParamField>
+
+<ParamField body="mimeType" type="string">
+  The MIME type of the image. Optional — defaults to `image/jpeg`. Common values: `image/jpeg`, `image/png`, `image/webp`.
+</ParamField>
+
+<ParamField body="query" type="string">
+  An optional natural language question about the image. When provided, the `answer` field in the response addresses this specific question.
+</ParamField>
+
+### Response
+
+<ResponseField name="title" type="string">
+  A short human-readable title identifying the subject of the image.
+</ResponseField>
+
+<ResponseField name="description" type="string">
+  A longer description of what was recognised in the image.
+</ResponseField>
+
+<ResponseField name="facts" type="string[]">
+  An array of interesting facts about the recognised subject.
+</ResponseField>
+
+<ResponseField name="category" type="string">
+  The category of the recognised subject. One of: `food`, `plant`, `animal`, `place`, `product`, `person`, `artwork`, `text`, `object`, `other`.
+</ResponseField>
+
+<ResponseField name="searchQuery" type="string">
+  A suggested web search query to learn more about the recognised subject.
+</ResponseField>
+
+<ResponseField name="confidence" type="string">
+  The model's confidence in its recognition. One of: `high`, `medium`, `low`.
+</ResponseField>
+
+<ResponseField name="answer" type="string">
+  If `query` was provided in the request, this field contains the AI's direct answer to that question about the image. Empty string if no query was provided.
+</ResponseField>
+
+### Error Responses
+
+| HTTP Status | Body | Cause |
+|---|---|---|
+| `400` | `{ "error": "imageBase64 is required" }` | Missing `imageBase64` field |
+| `500` | `{ "error": "Vision service not configured" }` | Missing vision AI credentials in function environment |
+
+```typescript Example
+import * as FileSystem from 'expo-file-system';
+
+const base64 = await FileSystem.readAsStringAsync(imageUri, {
+  encoding: FileSystem.EncodingType.Base64,
+});
+
+const response = await fetch(`${SUPABASE_EDGE_URL}/ai-lens`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    imageBase64: base64,
+    mimeType: 'image/jpeg',
+    query: 'What type of plant is this?',
+  }),
+});
+
+const result = await response.json();
+// result.title, result.facts, result.confidence, result.answer
+```
+
+---
+
+## export-user-data
+
+Collects the authenticated user's data across one or more data types and emails it to the account's registered email address. This supports GDPR / data portability requests.
+
+**`POST /functions/v1/export-user-data`**
+
+Requires authentication.
+
+### Request
+
+<ParamField body="types" type="string[]">
+  An array of data type names to include in the export. Optional — if omitted, all types are exported. Accepted values: `profile`, `posts`, `messages`, `activity`, `transactions`.
+</ParamField>
+
+### Response
+
+<ResponseField name="ok" type="boolean">
+  `true` when the export was triggered successfully.
+</ResponseField>
+
+<ResponseField name="email" type="string">
+  The email address to which the data export will be sent.
+</ResponseField>
+
+### Error Responses
+
+| HTTP Status | Body | Cause |
+|---|---|---|
+| `401` | `{ "error": "Unauthorized" }` | Missing or invalid `Authorization` header |
+
+```typescript Example
+const { data: { session } } = await supabase.auth.getSession();
+
+const response = await fetch(`${SUPABASE_EDGE_URL}/export-user-data`, {
+  method: 'POST',
+  headers: {
+    Authorization: `Bearer ${session?.access_token}`,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    types: ['profile', 'messages', 'transactions'],
+  }),
+});
+
+const { ok, email } = await response.json();
+// Inform the user that their data will be sent to `email`
+```
+
+---
+
+## uploads
+
+The uploads function provides a suite of six routes for managing file storage. All routes require authentication.
+
+**Base path: `/functions/v1/uploads`**
+
+All routes require `Authorization: Bearer <supabase_jwt>`.
+
+---
+
+### POST /uploads/sign
+
+Generates a pre-signed upload URL for a file. Use this to upload files directly to Supabase Storage from the client without exposing your service key.
+
+<ParamField body="key" type="string" required>
+  The storage path and filename for the upload, e.g. `avatars/user-uuid/photo.jpg`.
+</ParamField>
+
+<ParamField body="contentType" type="string" required>
+  The MIME type of the file being uploaded, e.g. `image/jpeg`.
+</ParamField>
+
+<ResponseField name="url" type="string">
+  The pre-signed URL to use for the `PUT` upload request. Expires in 60 seconds.
+</ResponseField>
+
+<ResponseField name="publicUrl" type="string">
+  The permanent public URL of the file once the upload completes.
+</ResponseField>
+
+---
+
+### POST /uploads/upload
+
+A proxied multipart file upload. Useful when you cannot use pre-signed URLs (e.g. when uploading from a server-side context or when additional server-side validation is needed).
+
+Send as `multipart/form-data` with the file in the `file` field.
+
+<ResponseField name="publicUrl" type="string">
+  The permanent public URL of the uploaded file.
+</ResponseField>
+
+---
+
+### GET /uploads/usage
+
+Returns storage usage statistics for the authenticated user.
+
+<ResponseField name="totalBytes" type="number">
+  Total bytes used across all files belonging to this user.
+</ResponseField>
+
+<ResponseField name="files" type="number">
+  Total number of files owned by this user.
+</ResponseField>
+
+---
+
+### GET /uploads/list
+
+Lists files in a storage bucket.
+
+**Query parameter:** `?bucket=<bucket-name>`
+
+<ResponseField name="objects" type="array">
+  Array of file objects in the specified bucket.
+
+  <ResponseField name="objects[].key" type="string">
+    The storage path of the file.
+  </ResponseField>
+
+  <ResponseField name="objects[].size" type="number">
+    File size in bytes.
+  </ResponseField>
+
+  <ResponseField name="objects[].lastModified" type="string">
+    ISO 8601 timestamp of the last modification.
+  </ResponseField>
+</ResponseField>
+
+---
+
+### POST /uploads/backfill
+
+Backfills storage metadata for existing files. Used for administrative migration tasks — not typically needed in normal client usage.
+
+---
+
+### DELETE /uploads/object
+
+Deletes a file from storage.
+
+<ParamField body="key" type="string" required>
+  The storage path of the file to delete.
+</ParamField>
+
+```typescript Upload Example (sign + PUT)
+const { data: { session } } = await supabase.auth.getSession();
+const headers = { Authorization: `Bearer ${session?.access_token}` };
+const base = 'https://rhnsjqqtdzlkvqazfcbg.supabase.co/functions/v1/uploads';
+
+// Step 1: get a pre-signed URL
+const signRes = await fetch(`${base}/sign`, {
+  method: 'POST',
+  headers: { ...headers, 'Content-Type': 'application/json' },
+  body: JSON.stringify({ key: `avatars/${session?.user.id}/avatar.jpg`, contentType: 'image/jpeg' }),
+});
+const { url, publicUrl } = await signRes.json();
+
+// Step 2: PUT the file bytes to the pre-signed URL
+await fetch(url, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'image/jpeg' },
+  body: fileBlob,
+});
+
+// publicUrl is now the permanent CDN URL for the avatar
+```

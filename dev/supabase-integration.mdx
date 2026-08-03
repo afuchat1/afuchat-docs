@@ -1,0 +1,189 @@
+---
+title: "Supabase Integration in AfuChat"
+sidebarTitle: "Supabase"
+description: "How AfuChat uses Supabase for auth, PostgreSQL RPCs, Realtime subscriptions, and Storage — TypeScript code examples for every integration pattern."
+---
+
+AfuChat uses Supabase as its exclusive backend. The Supabase JavaScript client is initialised once in `lib/supabase/client.ts` and imported throughout the app. All data access goes through Row Level Security (RLS) policies — no client can read or write rows it does not own.
+
+## Client Initialisation
+
+The Supabase client is configured using the environment variables described in [Environment Variables](/dev/environment). In production, the URL and anon key default to the AfuChat Supabase project.
+
+```typescript lib/supabase/client.ts
+import { createClient } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/env';
+
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    storage: AsyncStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
+  },
+});
+```
+
+Import the client anywhere in the app:
+
+```typescript
+import { supabase } from '@/lib/supabase/client';
+```
+
+## Authentication
+
+AfuChat supports three authentication methods: email/password, Google OAuth, and sign-out.
+
+### Email and Password
+
+```typescript
+const { data, error } = await supabase.auth.signInWithPassword({
+  email: 'user@example.com',
+  password: 'securepassword',
+});
+
+if (error) {
+  console.error('Sign-in failed:', error.message);
+} else {
+  console.log('Signed in as:', data.user?.email);
+}
+```
+
+### Google OAuth
+
+```typescript
+const { data, error } = await supabase.auth.signInWithOAuth({
+  provider: 'google',
+  options: {
+    redirectTo: 'afuchat://auth/callback',
+  },
+});
+```
+
+The deep link `afuchat://auth/callback` is handled by the Expo Router screen at `app/(auth)/callback.tsx`, which exchanges the OAuth code for a session.
+
+### Sign Out
+
+```typescript
+const { error } = await supabase.auth.signOut();
+```
+
+Signing out clears the persisted session from AsyncStorage and resets the `AuthContext` state.
+
+## Database — RPC Calls
+
+AfuChat uses Postgres stored procedures (RPCs) for complex multi-step operations that must run atomically on the server. All RPCs are called via `supabase.rpc()`.
+
+### `get_or_create_direct_chat`
+
+Creates a new one-to-one chat between the current user and another user, or returns the existing chat ID if one already exists. This is idempotent — calling it twice with the same `other_user_id` always returns the same chat ID.
+
+```typescript
+const { data: chatId, error } = await supabase.rpc(
+  'get_or_create_direct_chat',
+  { other_user_id: 'uuid-of-the-other-user' }
+);
+
+if (error) throw error;
+// chatId is a string UUID — navigate to the chat screen
+router.push(`/(chat)/${chatId}`);
+```
+
+### `deduct_acoin`
+
+Deducts a specified number of ACoins from the current user's balance. The RPC runs server-side so the balance cannot be manipulated by the client.
+
+```typescript
+const { error } = await supabase.rpc('deduct_acoin', { amount: 10 });
+
+if (error) {
+  // error.message will indicate insufficient balance or other failure
+  console.error('ACoin deduction failed:', error.message);
+}
+```
+
+### `send_afu_ai_welcome`
+
+Sends an automated AI welcome message into a specified chat. Typically called once when a new user first opens the AfuChat AI conversation.
+
+```typescript
+const { error } = await supabase.rpc('send_afu_ai_welcome', {
+  p_chat_id: 'uuid-of-the-chat',
+  p_sender_id: 'uuid-of-the-ai-sender',
+  p_content: 'Welcome to AfuChat AI! How can I help you today?',
+});
+```
+
+## Realtime Subscriptions
+
+AfuChat uses Supabase Realtime to push live updates to the client without polling. Realtime channels are used for message delivery, typing indicators, and WebRTC signalling.
+
+### Subscribing to New Messages
+
+The following pattern subscribes to all `INSERT` events on the `messages` table filtered to a specific chat room:
+
+```typescript
+const channel = supabase
+  .channel(`chat-room-${chatId}`)
+  .on(
+    'postgres_changes',
+    {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'messages',
+      filter: `chat_id=eq.${chatId}`,
+    },
+    (payload) => {
+      const newMessage = payload.new;
+      // Append newMessage to your local message list
+      setMessages((prev) => [...prev, newMessage]);
+    }
+  )
+  .subscribe();
+
+// Clean up when the component unmounts
+return () => {
+  supabase.removeChannel(channel);
+};
+```
+
+### Presence (Typing Indicators)
+
+Supabase Realtime presence lets clients broadcast ephemeral state — ideal for "is typing" indicators:
+
+```typescript
+const presenceChannel = supabase.channel(`presence-${chatId}`, {
+  config: { presence: { key: userId } },
+});
+
+presenceChannel
+  .on('presence', { event: 'sync' }, () => {
+    const state = presenceChannel.presenceState();
+    const typingUsers = Object.keys(state).filter((id) => id !== userId);
+    setTypingUsers(typingUsers);
+  })
+  .subscribe();
+
+// Broadcast that this user is typing
+await presenceChannel.track({ typing: true });
+```
+
+## Storage
+
+File uploads (avatars, chat media, post images) are handled via [Edge Function upload routes](/dev/edge-functions) rather than calling the Supabase Storage SDK directly. This keeps upload logic centralised and adds server-side validation before writes reach the bucket.
+
+## Security and RLS
+
+Every table in the AfuChat Supabase project has Row Level Security enabled. The patterns enforced by RLS policies include:
+
+- Users can only read messages in conversations they participate in
+- Users can only update their own profile rows
+- ACoin deductions are server-side only (via RPC) — clients cannot directly UPDATE balance columns
+
+<Note>
+  If you add a new table to a forked Supabase project, enable RLS immediately
+  with `ALTER TABLE my_table ENABLE ROW LEVEL SECURITY;` and define policies
+  before writing any client code. A table without RLS is readable by anyone
+  with the anon key.
+</Note>

@@ -1,0 +1,150 @@
+---
+title: "Troubleshooting Connectivity & Sync Issues"
+sidebarTitle: "Connectivity"
+description: "Fix common AfuChat connection problems: messages not sending, calls dropping, feed not loading, media issues, and slow app performance step by step."
+---
+
+AfuChat is built with an **offline-first** design — your messages queue up automatically when you're disconnected and sync the moment your connection returns. Most connection hiccups resolve on their own without any action from you. When they don't, this guide walks you through how to get things back on track quickly.
+
+<Note>
+  Before diving into specific issues, try the quick fix first: **close and reopen AfuChat**, then check that your Android device has an active Wi-Fi or mobile data connection. This resolves the majority of transient connection issues.
+</Note>
+
+## Messages Not Sending
+
+If your messages are showing a pending indicator (clock icon) or a failed status, AfuChat is either waiting for your connection to stabilize or has queued the message for delivery.
+
+<Steps>
+  <Step title="Check your connection">
+    Open your device's status bar and confirm you have an active Wi-Fi or mobile data signal. If the signal is weak or absent, move to a better coverage area.
+  </Step>
+  <Step title="Wait for automatic queue delivery">
+    AfuChat queues messages locally when you're offline. Once your connection is restored — even briefly — the app automatically delivers all pending messages. You don't need to resend them manually.
+  </Step>
+  <Step title="Look for the queue indicator">
+    A **clock icon** next to a message means it is queued and waiting to send. A **red exclamation icon** means sending failed after multiple attempts — tap it to retry manually.
+  </Step>
+  <Step title="Force-close and reopen the app">
+    If queued messages aren't sending even with a connection, force-close AfuChat in your Android app switcher and reopen it. This refreshes the sync process.
+  </Step>
+  <Step title="Check the recipient's privacy settings">
+    If a message fails consistently to one specific person, they may have restricted who can message them. This is not a connection issue — see the [Privacy & Security guide](/support/privacy-security) for more context.
+  </Step>
+</Steps>
+
+<Tip>
+  Airplane Mode trick: if messages are stuck, toggle Airplane Mode on for 5 seconds, then turn it off. This forces your device to re-establish its network connection and often clears stuck queues.
+</Tip>
+
+---
+
+## Calls Dropping or Poor Call Quality
+
+AfuChat voice and video calls use a peer-to-peer (P2P) connection between you and the other caller. Call quality depends on the network conditions of **both** participants.
+
+<Steps>
+  <Step title="Move closer to your Wi-Fi router">
+    P2P calls are sensitive to signal strength. Moving within 5–10 metres of your router can make a significant difference.
+  </Step>
+  <Step title="Switch between Wi-Fi and mobile data">
+    If Wi-Fi is performing poorly, switch to mobile data (or vice versa) to see if the other connection is more stable. You can do this mid-call.
+  </Step>
+  <Step title="Ask the other participant to check their connection">
+    Because calls are P2P, a poor connection on their end affects your experience too. Ask them to move to a better signal area or switch networks.
+  </Step>
+  <Step title="Close background apps">
+    Other apps streaming data (music, video, downloads) compete for bandwidth. Close unnecessary background apps before or during a call.
+  </Step>
+  <Step title="Retry the call">
+    If quality is consistently poor, end the call and start a new one. This establishes a fresh P2P connection and may find a better routing path.
+  </Step>
+</Steps>
+
+<Note>
+  Calls require a sustained connection — AfuChat cannot queue or cache live call data the way it does messages. If you're in a low-signal area frequently, messaging is a more reliable alternative.
+</Note>
+
+---
+
+## Feed Not Loading or Content Stuck
+
+If your home feed, explore page, or a profile's posts won't load or appear frozen:
+
+<Steps>
+  <Step title="Pull down to refresh">
+    Swipe downward from the top of the feed to trigger a manual refresh. This is the fastest fix for a stale or frozen feed.
+  </Step>
+  <Step title="Check your internet connection">
+    A feed showing cached content or nothing at all usually means AfuChat can't reach the server. Confirm your connection is active.
+  </Step>
+  <Step title="Wait a moment and try again">
+    Occasionally AfuChat's servers experience brief high-traffic periods. If pull-to-refresh doesn't work, wait 30–60 seconds and try again.
+  </Step>
+  <Step title="Force-close and reopen">
+    Close the app fully via your Android app switcher and reopen it to clear any session state that may have gotten stuck.
+  </Step>
+</Steps>
+
+---
+
+## Media Not Loading (Images & Videos)
+
+If images or videos in the feed, profiles, or messages appear as grey placeholders or fail to load:
+
+<Steps>
+  <Step title="Check your connection">
+    Media files are larger than text and are the first casualty of a slow or intermittent connection. Make sure you have a stable signal.
+  </Step>
+  <Step title="Clear the media cache">
+    A corrupted cache can prevent media from displaying even on a good connection. Go to **Settings → Storage → Clear Cache** to remove cached media files. They will re-download fresh on next view.
+  </Step>
+  <Step title="Check available device storage">
+    If your device has very little free storage, AfuChat may be unable to cache new media. Free up space on your device and try again.
+  </Step>
+  <Step title="Disable Data Saver temporarily">
+    If you have Data Saver mode enabled (see below), media quality is reduced and some media may not auto-load. Disable it briefly to test if this is the cause.
+  </Step>
+</Steps>
+
+---
+
+## App Feels Slow or Laggy
+
+If AfuChat feels sluggish, menus are slow to respond, or animations are choppy:
+
+<Steps>
+  <Step title="Enable Data Saver mode">
+    Counterintuitively, if AfuChat is trying to load high-quality media on a slow connection it can feel slower. **Settings → Data Mode** (Data Saver) reduces media quality and limits auto-play, making the app feel faster on poor connections.
+  </Step>
+  <Step title="Clear the app cache">
+    Go to **Settings → Storage → Clear Cache** within AfuChat to remove accumulated temporary data. This often improves responsiveness.
+  </Step>
+  <Step title="Restart your device">
+    A full device restart clears memory and background processes that may be competing with AfuChat for resources.
+  </Step>
+  <Step title="Free up device storage">
+    Android apps slow down when device storage is nearly full. Delete unused apps, photos, or files to give AfuChat more room to work with.
+  </Step>
+  <Step title="Check for app updates">
+    Open the Google Play Store and check if there's an updated version of AfuChat available. Updates often include performance improvements and bug fixes.
+  </Step>
+</Steps>
+
+<Tip>
+  If you're frequently in areas with slow mobile data, keeping **Data Saver mode** enabled by default is a great way to maintain a smooth AfuChat experience without waiting on heavy media to load.
+</Tip>
+
+---
+
+## Still Having Issues?
+
+If you've worked through the steps above and things still aren't working as expected, the AfuChat support team is here to help.
+
+<CardGroup cols={2}>
+  <Card title="Contact Support" icon="headset" href="/support/contact-us">
+    Submit a support ticket in-app or via afuchat.com. Include details about your device, Android version, and the specific steps that led to the issue.
+  </Card>
+  <Card title="Report a Bug" icon="bug" href="/support/contact-us">
+    If you think you've found a bug, go to **Me → Help & Support → Report a Bug** and attach any available crash logs. We review every report.
+  </Card>
+</CardGroup>

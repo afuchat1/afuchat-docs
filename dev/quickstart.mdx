@@ -1,0 +1,137 @@
+---
+title: "AfuChat Quickstart — Run on Android in 5 Steps"
+sidebarTitle: "Quickstart"
+description: "Clone AfuChat, install with pnpm, start the Expo dev server, and scan the QR code with Expo Go on your Android device — running in under five minutes."
+---
+
+This guide gets AfuChat running on a physical Android device using Expo Go. You do not need Android Studio, a local Android SDK, or any environment variables — the app connects to the production Supabase backend out of the box.
+
+## Prerequisites
+
+Before you begin, make sure you have the following installed and ready:
+
+- **Node.js 20 or later** — check with `node --version`
+- **pnpm** — install with `npm install -g pnpm` if you don't have it
+- **An Android device** with the [Expo Go](https://expo.dev/go) app installed (available on the Google Play Store)
+- The device and your development machine must be on the **same Wi-Fi network**
+
+## Steps
+
+<Steps>
+  ### Clone the repository
+
+  Clone the AfuChat repository to your local machine and navigate into it.
+
+  ```bash
+  git clone https://github.com/afuchat/afuapp.git
+  cd afuapp
+  ```
+
+  ### Install dependencies
+
+  Run `pnpm install` from the **repository root**. pnpm resolves the workspace and installs packages for all sub-projects, including `artifacts/mobile`.
+
+  ```bash
+  pnpm install
+  ```
+
+  This step may take a minute on first run while native module dependencies are resolved.
+
+  ### Navigate to the mobile app
+
+  The React Native project lives inside the `artifacts/mobile` directory.
+
+  ```bash
+  cd artifacts/mobile
+  ```
+
+  ### Start the Expo development server
+
+  Start Metro with the following command. All environment variables have production fallbacks, so no `.env` file is required.
+
+  ```bash
+  pnpm exec expo start --port 8000
+  ```
+
+  If you are working inside **Replit or a cloud IDE**, use this extended command instead to route the bundler through the cloud proxy:
+
+  ```bash
+  EXPO_OFFLINE=1 EXPO_NO_LAZY=1 \
+    EXPO_PUBLIC_DOMAIN=$REPLIT_DEV_DOMAIN \
+    EXPO_PUBLIC_REPL_ID=$REPL_ID \
+    EXPO_PACKAGER_PROXY_URL=https://$REPLIT_EXPO_DEV_DOMAIN \
+    REACT_NATIVE_PACKAGER_HOSTNAME=$REPLIT_EXPO_DEV_DOMAIN \
+    pnpm exec expo start --port 8000
+  ```
+
+  <Note>
+    Use `EXPO_OFFLINE=1`, not `CI=1`. Setting `CI=1` disables the interactive
+    Metro server and will cause the bundler to fail.
+  </Note>
+
+  ### Scan the QR code with Expo Go
+
+  Once Metro is running, a QR code appears in the terminal. Open **Expo Go** on your Android device and tap **Scan QR code**, then point your camera at the terminal QR code. The app will bundle and launch on your device within about 30 seconds.
+
+  ```
+  › Metro waiting on exp://192.168.x.x:8000
+  › Scan the QR code above with Expo Go (Android)
+  ```
+</Steps>
+
+## Verify Your Setup
+
+After the app launches, confirm everything is working by signing in or creating an account. The app communicates directly with Supabase — if authentication succeeds, your local development environment is correctly connected to the backend.
+
+## TypeScript Validation
+
+AfuChat ships with strict TypeScript configuration. Before opening a pull request, run a full type check from the `artifacts/mobile` directory:
+
+```bash
+pnpm run typecheck
+```
+
+Fix any type errors before submitting. The CI pipeline will reject pull requests with TypeScript errors.
+
+## Export a JavaScript Bundle
+
+To produce an Android-ready JavaScript bundle without a full native build, run:
+
+```bash
+pnpm exec expo export --platform android
+```
+
+The output lands in `artifacts/mobile/dist/`. This is useful for verifying that your changes bundle cleanly before triggering a full [EAS build](/dev/eas-builds).
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| QR code does not connect | Ensure your device and computer are on the same Wi-Fi network |
+| `EADDRINUSE` on port 8000 | Kill the process using port 8000 or change `--port` to another value |
+| Bundle fails with missing module | Run `pnpm install` again from the repo root, then restart Metro |
+| App shows a red error screen | Shake the device to open the developer menu, tap **Reload** |
+| Supabase auth errors | Check that your device has internet access; the app uses the live Supabase project by default |
+
+<Tip>
+  For a faster development cycle, enable Fast Refresh by shaking your Android
+  device and tapping **Enable Fast Refresh**. Changes to `.tsx` files will
+  hot-reload on the device without a full restart.
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Environment Variables" icon="sliders" href="/dev/environment">
+    Override Supabase URL and other settings for custom backend work.
+  </Card>
+  <Card title="Android Build" icon="android" href="/dev/build-android">
+    Produce a local APK or AAB with the full native build toolchain.
+  </Card>
+  <Card title="EAS Builds" icon="cloud" href="/dev/eas-builds">
+    Trigger cloud-based Android and iOS builds with Expo Application Services.
+  </Card>
+  <Card title="Architecture" icon="sitemap" href="/dev/architecture">
+    Understand the codebase structure before making changes.
+  </Card>
+</CardGroup>
