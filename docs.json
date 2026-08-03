@@ -11,7 +11,7 @@
     "dark": "https://media.brand.dev/7466875f-e3b3-4da1-a1a2-6e05447493b6.svg"
   },
   "favicon": {
-    "light": "/favicon.svg",
+    "light": "/images/afuchat.png",
     "dark": "/images/afuchat.png"
   },
   "navbar": {
@@ -150,7 +150,7 @@
   },
   "footer": {
     "socials": {
-      "github": "https://github.com/orgs/AfuChat/dashboard"
+      "github": "https://github.com/orgs/AfuChat"
     }
   },
   "description": "Afuchat is a social platform for creators to connect, share, and monetize content across communities and mini-apps.",
