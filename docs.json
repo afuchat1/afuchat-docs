@@ -10,7 +10,7 @@
     "light": "https://media.brand.dev/7466875f-e3b3-4da1-a1a2-6e05447493b6.svg",
     "dark": "https://media.brand.dev/7466875f-e3b3-4da1-a1a2-6e05447493b6.svg"
   },
-  "favicon": "https://media.brand.dev/7466875f-e3b3-4da1-a1a2-6e05447493b6.svg",
+  "favicon": "/favicon.svg",
   "navbar": {
     "primary": {
       "type": "github",
