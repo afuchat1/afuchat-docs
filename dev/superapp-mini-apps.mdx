@@ -99,9 +99,7 @@ export const SUPER_APP_REGISTRY: ModuleManifest[] = [
 ```
 
 <Note>
-  Use Ionicons icon names. Browse the full icon set at
-  [ionic.io/ionicons](https://ionic.io/ionicons). Always use the `outline`
-  variant for consistency with the rest of the launcher UI.
+  Use Ionicons icon names. Browse the full icon set at [ionic.io/ionicons](https://ionic.io/ionicons). Always use the `outline` variant for consistency with the rest of the launcher UI.
 </Note>
 
 ## Implementing the Module Screen
@@ -218,17 +216,14 @@ function handleNavigation(destination: string) {
 The `keepAlive` flag in a module's manifest controls what happens when the user minimises the module.
 
 | `keepAlive` | On minimise | On re-open |
-|---|---|---|
+| --- | --- | --- |
 | `false` | Component unmounts, state is lost | Component mounts fresh |
 | `true` | Component stays mounted, state is preserved | Component brought to foreground, no re-mount |
 
 Use `keepAlive: true` for modules that must maintain in-memory state across minimise/restore cycles — for example, a music player, a live game session, or a video call.
 
 <Warning>
-  Enabling `keepAlive: true` means the module's React tree stays mounted
-  indefinitely until the user explicitly closes it. Be mindful of memory
-  consumption — avoid keeping large data sets in component state for
-  keepAlive modules.
+  Enabling `keepAlive: true` means the module's React tree stays mounted indefinitely until the user explicitly closes it. Be mindful of memory consumption — avoid keeping large data sets in component state for keepAlive modules.
 </Warning>
 
 ## MiniAppRuntime Provider
@@ -248,25 +243,3 @@ render(
 ```
 
 ## Summary: Adding a New Mini-App
-
-<Steps>
-  ### Define the manifest
-
-  Create `modules/my-module/manifest.ts` and export a `ModuleManifest` object with a unique `id`, display name, Ionicons icon, gradient colours, and lifecycle settings.
-
-  ### Register the module
-
-  Add the manifest to `SUPER_APP_REGISTRY` in `lib/superapp/registry.ts`.
-
-  ### Build the screen
-
-  Create `modules/my-module/index.tsx` with the main module UI. Use `useSuperApp()` to access `minimizeApp`, `closeApp`, and `navigateOutside`.
-
-  ### Wire up navigation
-
-  If your module has internal navigation, use a nested `Stack` navigator inside the module screen. Expo Router is not used inside mini-app modules — use React Navigation directly.
-
-  ### Test on device
-
-  Run `pnpm exec expo start --port 8000`, open the SuperApp tab in the launcher, and tap your new module tile.
-</Steps>
